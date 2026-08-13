@@ -1,0 +1,6 @@
+{
+  "name": "GAROS",
+  "description": "Gerenciador de infraestrutura e terminais diskless GAROS.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
