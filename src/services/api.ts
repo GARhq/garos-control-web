@@ -136,7 +136,7 @@ const fallbackSessions: ActiveSession[] = [
 
 export async function fetchGarosDevices(): Promise<NetbootDevice[]> {
   try {
-    const res = await fetch('/api/garos/devices');
+    const res = await fetch('/api/garos/nodes');
     if (res.ok) return await res.json();
   } catch (e) {
     console.warn("Using local fallback devices state", e);
@@ -146,7 +146,7 @@ export async function fetchGarosDevices(): Promise<NetbootDevice[]> {
 
 export async function sendWakeOnLan(mac: string): Promise<boolean> {
   try {
-    const res = await fetch('/api/garos/devices/wol', {
+    const res = await fetch(`/api/garos/nodes/${encodeURIComponent(mac)}/wol`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ mac }),
@@ -160,7 +160,7 @@ export async function sendWakeOnLan(mac: string): Promise<boolean> {
 
 export async function updateDeviceImage(mac: string, assignedImageId: string): Promise<boolean> {
   try {
-    const res = await fetch(`/api/garos/devices/${encodeURIComponent(mac)}/image`, {
+    const res = await fetch(`/api/garos/nodes/${encodeURIComponent(mac)}/image`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ assignedImageId }),
@@ -174,7 +174,7 @@ export async function updateDeviceImage(mac: string, assignedImageId: string): P
 
 export async function sendTerminalMessage(mac: string, message: string): Promise<boolean> {
   try {
-    const res = await fetch(`/api/garos/devices/${encodeURIComponent(mac)}/message`, {
+    const res = await fetch(`/api/garos/nodes/${encodeURIComponent(mac)}/message`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message }),
@@ -188,7 +188,7 @@ export async function sendTerminalMessage(mac: string, message: string): Promise
 
 export async function rebootTerminalDevice(mac: string): Promise<boolean> {
   try {
-    const res = await fetch(`/api/garos/devices/${encodeURIComponent(mac)}/reboot`, {
+    const res = await fetch(`/api/garos/nodes/${encodeURIComponent(mac)}/reboot`, {
       method: 'POST',
     });
     if (res.ok) return true;
@@ -200,7 +200,7 @@ export async function rebootTerminalDevice(mac: string): Promise<boolean> {
 
 export async function fetchGarosPxeImages(): Promise<PXEImageDetail[]> {
   try {
-    const res = await fetch('/api/garos/pxe/images');
+    const res = await fetch('/api/garos/images');
     if (res.ok) return await res.json();
   } catch (e) {
     console.warn("Using local fallback PXE images", e);
@@ -210,7 +210,7 @@ export async function fetchGarosPxeImages(): Promise<PXEImageDetail[]> {
 
 export async function createGarosPxeImage(name: string, kernel: string, args: string): Promise<PXEImageDetail> {
   try {
-    const res = await fetch('/api/garos/pxe/images', {
+    const res = await fetch('/api/garos/images', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, kernel, args }),

@@ -135,7 +135,7 @@ const MainLayout: React.FC<{
 
   const handleQuickWol = async () => {
     try {
-      await fetch('/api/garos/devices/wol-all', { method: 'POST' });
+      await fetch('/api/garos/nodes/bulk/wol', { method: 'POST' });
       navigate('/node-server');
     } catch {
       navigate('/node-server');
