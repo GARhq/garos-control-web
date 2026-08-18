@@ -117,7 +117,7 @@ Definidos em `tailwind.config.ts` como `kve-bg`, `kve-accent`, `kve-indigo`, etc
 
 ## Integração com o backend
 
-Por enquanto, o `server.ts` deste projeto serve um backend Express mínimo (legado). A migração para o backend Rust `garos-control-api` (Axum + sqlx + ldap3) está em curso.
+Em produção, as requisições de API (`/api/*`) são proxyadas nativamente pelo Nginx para o backend em Rust **garos-control-api** (`garos-backend` baseado em Axum + sqlx + SQLite) rodando localmente na porta `8080` do servidor. O servidor de desenvolvimento Express (`server.ts`) é mantido estritamente para propósitos de teste local e mocks rápidos quando a API do Rust não está ativa.
 
 ## Licença
 

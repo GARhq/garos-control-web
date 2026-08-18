@@ -232,7 +232,7 @@ export async function createGarosPxeImage(name: string, kernel: string, args: st
 
 export async function fetchGarosSessions(): Promise<ActiveSession[]> {
   try {
-    const res = await fetch('/api/garos/sessions');
+    const res = await fetch('/api/garos/activity');
     if (res.ok) return await res.json();
   } catch (e) {
     console.warn("Using local fallback sessions", e);
@@ -242,7 +242,7 @@ export async function fetchGarosSessions(): Promise<ActiveSession[]> {
 
 export async function terminateSession(id: string): Promise<boolean> {
   try {
-    const res = await fetch(`/api/garos/sessions/${id}`, { method: 'DELETE' });
+    const res = await fetch(`/api/garos/activity/${id}`, { method: 'DELETE' });
     if (res.ok) return true;
   } catch (e) {
     console.warn("Session termination handled locally", e);
@@ -283,7 +283,7 @@ export async function triggerGarosServiceAction(name: string, action: 'start' | 
 
 export async function fetchGarosLogs(): Promise<AuditLog[]> {
   try {
-    const res = await fetch('/api/garos/logs');
+    const res = await fetch('/api/garos/audit');
     if (res.ok) return await res.json();
   } catch (e) {
     console.warn("Using local logs fallback", e);
