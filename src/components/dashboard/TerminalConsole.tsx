@@ -55,10 +55,10 @@ const TerminalConsole: React.FC<TerminalConsoleProps> = ({ nodeId, nodeName }) =
       response = 'root';
     } else if (cmd === 'top' || cmd === 'htop') {
       response = 'Tasks: 185 total,   1 running, 184 sleeping,   0 stopped,   0 zombie\n%Cpu(s):  2.7 us,  1.2 sy,  0.0 ni, 95.8 id,  0.0 wa,  0.0 hi,  0.3 si,  0.0 st\nMiB Mem :  16000.0 total,   4200.5 free,   8100.2 used,   3699.3 buff/cache';
-    } else if (cmd === 'pveversion') {
-      response = 'pve-manager/8.1.3/b465231b64e526 (running kernel: 6.5.11-4-pve)';
+    } else if (cmd === 'garversion' || cmd === 'gar --version') {
+      response = 'gar version 1.1.0-lts (running kernel: 6.6.21-garos-lts)';
     } else if (cmd === 'help') {
-      response = 'Available commands: ls, whoami, top, htop, pveversion, clear, help';
+      response = 'Available commands: ls, whoami, top, htop, garversion, clear, help';
     } else {
       response = `-bash: ${input}: command not found`;
     }

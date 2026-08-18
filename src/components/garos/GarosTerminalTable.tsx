@@ -67,11 +67,10 @@ export const GarosTerminalTable: React.FC<GarosTerminalTableProps> = ({
         </div>
       </div>
 
-      {/* Clarification Banner & Quick Batch Actions */}
       <div className="px-3.5 py-2.5 bg-slate-950/80 border border-slate-800/80 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs text-slate-400 font-mono">
         <div className="flex items-center gap-2">
           <ShieldCheck size={14} className="text-kve-success" />
-          <span>Arquitetura Bare-Metal Direct: <strong className="text-white font-semibold">Sem Hypervisor / Sem VMs</strong></span>
+          <span>Ambiente Bare-Metal: <strong className="text-white font-semibold">Estações Diskless / Endpoints de Rede</strong></span>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">

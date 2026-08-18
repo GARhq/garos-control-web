@@ -139,9 +139,9 @@ export async function fetchGarosDevices(): Promise<NetbootDevice[]> {
     const res = await fetch('/api/garos/nodes');
     if (res.ok) return await res.json();
   } catch (e) {
-    console.warn("Using local fallback devices state", e);
+    console.error("Failed to fetch real devices state from API", e);
   }
-  return fallbackDevices;
+  return [];
 }
 
 export async function sendWakeOnLan(mac: string): Promise<boolean> {
@@ -153,9 +153,9 @@ export async function sendWakeOnLan(mac: string): Promise<boolean> {
     });
     if (res.ok) return true;
   } catch (e) {
-    console.warn("WOL call handled locally", e);
+    console.error("WOL API call failed", e);
   }
-  return true;
+  return false;
 }
 
 export async function updateDeviceImage(mac: string, assignedImageId: string): Promise<boolean> {
@@ -167,9 +167,9 @@ export async function updateDeviceImage(mac: string, assignedImageId: string): P
     });
     if (res.ok) return true;
   } catch (e) {
-    console.warn("Update device image handled locally", e);
+    console.error("Update device image API call failed", e);
   }
-  return true;
+  return false;
 }
 
 export async function sendTerminalMessage(mac: string, message: string): Promise<boolean> {
@@ -181,9 +181,9 @@ export async function sendTerminalMessage(mac: string, message: string): Promise
     });
     if (res.ok) return true;
   } catch (e) {
-    console.warn("Terminal message handled locally", e);
+    console.error("Terminal message API call failed", e);
   }
-  return true;
+  return false;
 }
 
 export async function rebootTerminalDevice(mac: string): Promise<boolean> {
@@ -193,9 +193,9 @@ export async function rebootTerminalDevice(mac: string): Promise<boolean> {
     });
     if (res.ok) return true;
   } catch (e) {
-    console.warn("Reboot device handled locally", e);
+    console.error("Reboot device API call failed", e);
   }
-  return true;
+  return false;
 }
 
 export async function fetchGarosPxeImages(): Promise<PXEImageDetail[]> {
@@ -203,9 +203,9 @@ export async function fetchGarosPxeImages(): Promise<PXEImageDetail[]> {
     const res = await fetch('/api/garos/images');
     if (res.ok) return await res.json();
   } catch (e) {
-    console.warn("Using local fallback PXE images", e);
+    console.error("Failed to fetch real PXE images from API", e);
   }
-  return fallbackPxeImages;
+  return [];
 }
 
 export async function createGarosPxeImage(name: string, kernel: string, args: string): Promise<PXEImageDetail> {
@@ -217,17 +217,10 @@ export async function createGarosPxeImage(name: string, kernel: string, args: st
     });
     if (res.ok) return await res.json();
   } catch (e) {
-    console.warn("Create PXE image handled locally", e);
+    console.error("Create PXE image API call failed", e);
+    throw e;
   }
-  return {
-    id: `img-${Date.now()}`,
-    name,
-    kernel,
-    args,
-    sizeMb: 350,
-    status: 'Active',
-    lastUpdated: 'Agora',
-  };
+  throw new Error("API Offline");
 }
 
 export async function fetchGarosSessions(): Promise<ActiveSession[]> {
@@ -235,9 +228,9 @@ export async function fetchGarosSessions(): Promise<ActiveSession[]> {
     const res = await fetch('/api/garos/activity');
     if (res.ok) return await res.json();
   } catch (e) {
-    console.warn("Using local fallback sessions", e);
+    console.error("Failed to fetch real active sessions from API", e);
   }
-  return fallbackSessions;
+  return [];
 }
 
 export async function terminateSession(id: string): Promise<boolean> {
@@ -245,9 +238,9 @@ export async function terminateSession(id: string): Promise<boolean> {
     const res = await fetch(`/api/garos/activity/${id}`, { method: 'DELETE' });
     if (res.ok) return true;
   } catch (e) {
-    console.warn("Session termination handled locally", e);
+    console.error("Session termination API call failed", e);
   }
-  return true;
+  return false;
 }
 
 export async function fetchGarosServices(): Promise<Service[]> {
@@ -255,16 +248,9 @@ export async function fetchGarosServices(): Promise<Service[]> {
     const res = await fetch('/api/garos/services');
     if (res.ok) return await res.json();
   } catch (e) {
-    console.warn("Using local services fallback", e);
+    console.error("Failed to fetch real services from API", e);
   }
-  return [
-    { name: 'tftp-server (PXE)', status: 'running', uptime: '15d 4h', cpu: 0.2, memory: 32 },
-    { name: 'nfs-kernel-server (RootFS)', status: 'running', uptime: '15d 4h', cpu: 2.4, memory: 512 },
-    { name: 'dnsmasq (ProxyDHCP)', status: 'running', uptime: '15d 4h', cpu: 0.1, memory: 18 },
-    { name: 'garos-wol-proxy', status: 'running', uptime: '15d 4h', cpu: 0.05, memory: 12 },
-    { name: 'nix-daemon (Store)', status: 'running', uptime: '30d 2h', cpu: 0.8, memory: 120 },
-    { name: 'sshd (Remote Mgmt)', status: 'running', uptime: '120d', cpu: 0.1, memory: 8 },
-  ];
+  return [];
 }
 
 export async function triggerGarosServiceAction(name: string, action: 'start' | 'stop' | 'restart'): Promise<boolean> {
@@ -276,9 +262,9 @@ export async function triggerGarosServiceAction(name: string, action: 'start' | 
     });
     if (res.ok) return true;
   } catch (e) {
-    console.warn("Service action handled locally", e);
+    console.error("Service action API call failed", e);
   }
-  return true;
+  return false;
 }
 
 export async function fetchGarosLogs(): Promise<AuditLog[]> {
@@ -286,15 +272,9 @@ export async function fetchGarosLogs(): Promise<AuditLog[]> {
     const res = await fetch('/api/garos/audit');
     if (res.ok) return await res.json();
   } catch (e) {
-    console.warn("Using local logs fallback", e);
+    console.error("Failed to fetch real audit logs from API", e);
   }
-  return [
-    { id: 101, time: new Date(Date.now() - 100000).toLocaleString(), level: 'success', source: 'pxe-boot', message: 'Estação thin-client-01 (192.168.1.150) iniciou via TFTP', user: 'aguiarrocha' },
-    { id: 102, time: new Date(Date.now() - 300000).toLocaleString(), level: 'info', source: 'nfs-server', message: 'RootFS montado via NFSv4 para lab-pc-01', user: 'system' },
-    { id: 103, time: new Date(Date.now() - 600000).toLocaleString(), level: 'warning', source: 'wol-proxy', message: 'Pacote Magic Packet WOL transmitido no broadcast 192.168.1.255', user: 'aguiarrocha' },
-    { id: 104, time: new Date(Date.now() - 1200000).toLocaleString(), level: 'info', source: 'auth-service', message: 'Sessão aberta para operator-01 em thin-client-02', user: 'operator-01' },
-    { id: 105, time: new Date(Date.now() - 2500000).toLocaleString(), level: 'success', source: 'nix-builder', message: 'Imagem GarOS-Thin-Client-v2.6 recompilada e promovida no TFTP', user: 'aguiarrocha' },
-  ];
+  return [];
 }
 
 export async function executeGarosTerminalCommand(command: string): Promise<string> {
@@ -309,7 +289,7 @@ export async function executeGarosTerminalCommand(command: string): Promise<stri
       return data.output;
     }
   } catch (e) {
-    console.warn("Terminal command handled locally", e);
+    console.error("Terminal command execution API call failed", e);
   }
-  return `[GAROS SHELL LOCAL]\nCommand executed: ${command}\nStatus: OK`;
+  return `[ERRO] Sem conexão com a API de Controle do GAROS.`;
 }

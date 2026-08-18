@@ -5,100 +5,87 @@ import KveCard from '../components/KveCard';
 import { applyTheme, getSavedPreferences, GarosPreferences } from '../utils/theme';
 
 const GAROS_TEMPLATES: Record<string, string> = {
-  standard: `# Configuração Declarativa do Cluster KVE
-# Perfil: Standard Hypervisor Node
+  standard: `# Configuração Declarativa do GarOS
+# Perfil: Estação Diskless Padrão (desktop-generic)
 
 { config, pkgs, ... }:
 
 {
   imports = [ ./hardware-configuration.nix ];
 
-  # Virtualização & suporte a hipervisores
-  virtualisation.libvirtd = {
+  # Suporte a vídeo e aceleração gráfica
+  services.xserver = {
     enable = true;
-    qemu = {
-      package = pkgs.qemu_kvm;
-      runAsRoot = true;
-    };
+    displayManager.sddm.enable = true;
+    desktopManager.plasma5.enable = true;
   };
 
-  # Rede de ponte para as VMs do cluster
-  networking.bridges.vmbr0.interfaces = [ "enp0s3" ];
-  networking.interfaces.vmbr0.ipv4.addresses = [{
-    address = "192.168.1.10";
-    prefixLength = 24;
-  }];
-
-  # Pontos de montagem NFS para volumes compartilhados
-  fileSystems."/export/nix-store" = {
-    device = "/dev/nvme0n1p2";
-    fsType = "btrfs";
-    options = [ "compress=zstd" "subvol=nix-store" ];
+  # Configuração de áudio PipeWire para a estação
+  security.rtkit.enable = true;
+  services.pipewire = {
+    enable = true;
+    alsa.enable = true;
+    alsa.support32Bit = true;
+    pulse.enable = true;
   };
 
+  # Rede via DHCP com configuração de hostname dinâmica do GarOS
+  networking.useDHCP = true;
+
+  # Injeção de dependências locais de diagnóstico
+  environment.systemPackages = with pkgs; [
+    firefox
+    libreoffice
+    git
+    htop
+  ];
+}`,
+  storage: `# Configuração Declarativa do GarOS
+# Perfil: Servidor NFS Storage (server-storage)
+
+{ config, pkgs, ... }:
+
+{
+  imports = [ ./hardware-configuration.nix ];
+
+  # Ativar sistemas de arquivo otimizados para o Tier 1
+  boot.supportedFilesystems = [ "btrfs" "nfs" ];
+
+  # Compartilhamentos NFS integrados do GarOS
   services.nfs.server = {
     enable = true;
     exports = ''
-      /export/home       192.168.1.0/24(rw,sync,no_root_squash)
-      /export/nix-store  192.168.1.0/24(ro,async,no_root_squash)
+      /srv/data/home       192.168.1.0/24(rw,sync,no_root_squash,no_subtree_check)
+      /srv/data/images     192.168.1.0/24(ro,async,no_root_squash,no_subtree_check)
+      /srv/data/snapshots  192.168.1.0/24(rw,sync,no_root_squash,no_subtree_check)
     '';
   };
 }`,
-  storage: `# Configuração Declarativa do Cluster KVE
-# Perfil: High Availability Storage Server
+  gpu: `# Configuração Declarativa do GarOS
+# Perfil: Estação GPU Otimizada / Renderização (desktop-gpu)
 
 { config, pkgs, ... }:
 
 {
   imports = [ ./hardware-configuration.nix ];
 
-  # Ativar sistemas de arquivo de storage corporativo
-  boot.supportedFilesystems = [ "zfs" "btrfs" "nfs" ];
+  # Parâmetros de kernel e carregamento de drivers Nvidia
+  services.xserver.videoDrivers = [ "nvidia" ];
 
-  # Tuning de pools ZFS para o cluster KVE
-  boot.zfs.devNodes = "/dev/disk/by-id";
-  boot.zfs.forceImportAll = true;
-
-  networking.interfaces.vmbr0.ipv4.addresses = [{
-    address = "192.168.1.20";
-    prefixLength = 24;
-  }];
-
-  # Compartilhamentos NFS integrados ao Storage Pool
-  services.nfs.server = {
+  hardware.opengl = {
     enable = true;
-    exports = ''
-      /export/backup-zfs  192.168.1.0/24(rw,async,no_root_squash,no_subtree_check)
-      /export/vms-shared   192.168.1.0/24(rw,sync,no_root_squash,no_subtree_check)
-    '';
+    driSupport = true;
+    driSupport32Bit = true;
   };
+
+  # Habilitar aceleração CUDA bare-metal
+  nixpkgs.config.allowUnfree = true;
+  environment.systemPackages = with pkgs; [
+    cudaPackages.cudatoolkit
+  ];
 }`,
-  gpu: `# Configuração Declarativa do Cluster KVE
-# Perfil: GPU-Passthrough Hypervisor (PCIe Passthrough)
-
-{ config, pkgs, ... }:
-
-{
-  imports = [ ./hardware-configuration.nix ];
-
-  # Parâmetros de kernel para isolamento de barramento PCIe IOMMU
-  boot.kernelParams = [ "amd_iommu=on" "intel_iommu=on" "iommu=pt" "kvm.ignore_msrs=1" ];
-  boot.kernelModules = [ "vfio" "vfio_iommu_type1" "vfio_pci" "vfio_virqfd" ];
-
-  # Blacklistar drivers host da GPU para uso livre nas VMs
-  boot.blacklistedKernelModules = [ "nvidia" "nouveau" "nvidia_drm" "nvidia_modeset" ];
-
-  virtualisation.libvirtd = {
-    enable = true;
-    qemu = {
-      package = pkgs.qemu_kvm;
-      runAsRoot = true;
-      ovmf.enable = true;
-    };
-  };
-}`,
-  container: `# Configuração Declarativa do Cluster KVE
-# Perfil: Micro-OS Lightweight Container Host
+  container: `# Configuração Declarativa do GarOS
+# Perfil: Servidor de Aplicação / Cache Local (server-app)
 
 { config, pkgs, ... }:
 
@@ -112,12 +99,6 @@ const GAROS_TEMPLATES: Record<string, string> = {
     autoPrune.enable = true;
   };
 
-  # Podman integrado como alternativa rootless
-  virtualisation.podman = {
-    enable = true;
-    dockerCompat = true;
-  };
-
   # Otimizações de rede do Kernel para alta densidade
   boot.kernel.sysctl = {
     "fs.file-max" = 2097152;
@@ -128,9 +109,9 @@ const GAROS_TEMPLATES: Record<string, string> = {
 
 const MODULAR_SERVICES = [
   { key: 'tailscale', label: 'Tailscale VPN Mesh', line: 'services.tailscale.enable = true;', description: 'Cria uma VPN overlay segura de zero-configuração' },
-  { key: 'prometheus', label: 'Prometheus Node Exporter', line: 'services.prometheus.exporters.node.enable = true;', description: 'Coleta métricas detalhadas de hardware e rede para o KVE' },
-  { key: 'docker', label: 'Docker Daemon Engine', line: 'virtualisation.docker.enable = true;', description: 'Habilita Docker para containers leves integrados à bridge' },
-  { key: 'fail2ban', label: 'Fail2ban IPS Protection', line: 'services.fail2ban.enable = true;', description: 'Prevenção contra força bruta banindo IPs suspeitos no SSH' },
+  { key: 'prometheus', label: 'Prometheus Node Exporter', line: 'services.prometheus.exporters.node.enable = true;', description: 'Coleta métricas detalhadas de hardware e rede para o GarOS' },
+  { key: 'docker', label: 'Docker Daemon Engine', line: 'virtualisation.docker.enable = true;', description: 'Habilita Docker para containers leves integrados à rede do servidor' },
+  { key: 'fail2ban', label: 'Fail2ban IPS Protection', line: 'services.fail2ban.enable = true;', description: 'Prevenção contra força bruta banindo IPs suspeitos no SSH do servidor' },
   { key: 'autoOptimise', label: 'Nix Auto Store Optimise', line: 'nix.settings.auto-optimise-store = true;', description: 'Une arquivos idênticos no nix-store otimizando espaço em disco' }
 ];
 
@@ -139,7 +120,7 @@ const SettingsView: React.FC = () => {
   const [preferences, setPreferences] = useState<GarosPreferences>(getSavedPreferences);
   const [garosCode, setGarosCode] = useState('');
   const [generation, setGeneration] = useState(142);
-  const [kernel, setKernel] = useState("6.6.14-rt-pve");
+  const [kernel, setKernel] = useState("6.6.21-garos-lts");
   const [lastRebuild, setLastRebuild] = useState("May 28, 2026 14:15:22");
   const [isBuilding, setIsBuilding] = useState(false);
   const [buildLogs, setBuildLogs] = useState('');
@@ -181,23 +162,23 @@ const SettingsView: React.FC = () => {
 
   const handleGarosRebuild = async () => {
     setIsBuilding(true);
-    setBuildLogs("Iniciando garos-rebuild switch --target-host pve-01-garos...\n");
+    setBuildLogs("Iniciando gar server switch...\n");
     
     // Simulate compilation logs scrolling
     const logs = [
       "Processando avaliação de módulos nix...",
       "Processando canais de pacotes (nixpkgs channels)...",
       "Calculando derivações do fecho da árvore de pacotes...",
-      "Compilando kernel modules pve-rt-kernel...",
+      "Compilando módulos do kernel LTS linux-garos...",
       "Montando fechos de dependência e links do sistema...",
       "Copiando arquivos do nix-store de build (/nix/store/7xp91f...)...",
       "Criando geração de perfil /nix/var/nix/profiles/system-143-link...",
-      "Sincronizando serviços systemd (libvirtd.service, qemu-guest.service)...",
+      "Sincronizando serviços systemd (nfs-server.service, tftpd.service, dnsmasq.service)...",
       "Rebuilding GRUB/Systemd-boot loaders...",
       "Sucesso! Sistema alternado para a geração 143."
     ];
 
-    let currentLog = "Iniciando garos-rebuild switch --target-host pve-01-garos...\n";
+    let currentLog = "Iniciando gar server switch...\n";
     for (let i = 0; i < logs.length; i++) {
       await new Promise(resolve => setTimeout(resolve, 600));
       currentLog += `${logs[i]}\n`;
@@ -406,7 +387,7 @@ const SettingsView: React.FC = () => {
                 <div className="xl:col-span-4 space-y-6">
                   
                   {/* Preset Templates */}
-                  <KveCard title="Perfis GarOS" subtitle="Carregar templates de cluster" icon={<Layers size={14} />}>
+                  <KveCard title="Perfis GarOS" subtitle="Carregar templates de configuração" icon={<Layers size={14} />}>
                     <div className="space-y-2">
                       <button
                         onClick={() => handleSelectTemplate('standard')}
@@ -417,10 +398,10 @@ const SettingsView: React.FC = () => {
                         }`}
                       >
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold">Standard Hypervisor</span>
+                          <span className="text-xs font-bold">Estação Padrão</span>
                           {activeTemplate === 'standard' && <CheckCircle size={12} className="text-kve-accent" />}
                         </div>
-                        <p className="text-[10px] text-slate-500 mt-1">Libvirtd + QEMU ideal para computação geral</p>
+                        <p className="text-[10px] text-slate-500 mt-1">Configuração básica (Plasma 5 + Pipewire) para estações diskless</p>
                       </button>
 
                       <button
@@ -432,10 +413,10 @@ const SettingsView: React.FC = () => {
                         }`}
                       >
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold">HA Storage Profile</span>
+                          <span className="text-xs font-bold">NFS Storage</span>
                           {activeTemplate === 'storage' && <CheckCircle size={12} className="text-kve-accent" />}
                         </div>
-                        <p className="text-[10px] text-slate-500 mt-1">ZFS Pools integrados com NFS compartilhado</p>
+                        <p className="text-[10px] text-slate-500 mt-1">Servidor NFS e BTRFS otimizado para o Tier de dados</p>
                       </button>
 
                       <button
@@ -447,10 +428,10 @@ const SettingsView: React.FC = () => {
                         }`}
                       >
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold">GPU-Passthrough</span>
+                          <span className="text-xs font-bold">Estação GPU Render</span>
                           {activeTemplate === 'gpu' && <CheckCircle size={12} className="text-kve-accent" />}
                         </div>
-                        <p className="text-[10px] text-slate-500 mt-1">Isolamento IOMMU p/ virtualizar placas gráficas</p>
+                        <p className="text-[10px] text-slate-500 mt-1">Aceleração gráfica direta com drivers Nvidia e CUDA bare-metal</p>
                       </button>
 
                       <button
@@ -462,10 +443,10 @@ const SettingsView: React.FC = () => {
                         }`}
                       >
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold">OS Container Host</span>
+                          <span className="text-xs font-bold">Servidor de Apps</span>
                           {activeTemplate === 'container' && <CheckCircle size={12} className="text-kve-accent" />}
                         </div>
-                        <p className="text-[10px] text-slate-500 mt-1">Docker e Podman otimizados p/ alta densidade</p>
+                        <p className="text-[10px] text-slate-500 mt-1">Docker engine otimizado com subvolumes BTRFS para o servidor</p>
                       </button>
                     </div>
                   </KveCard>

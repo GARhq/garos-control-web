@@ -25,7 +25,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [password, setPassword] = useState('');
   const [operationalScope, setOperationalScope] = useState<'node' | 'cluster'>('cluster');
   const [targetHost, setTargetHost] = useState('');
-  const [realm, setRealm] = useState('pve');
+  const [realm, setRealm] = useState('garos');
   const [realmDropdownOpen, setRealmDropdownOpen] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -179,7 +179,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     >
                       <span className="truncate">
                         {realm === 'pam' && 'Linux PAM standard authentication'}
-                        {realm === 'pve' && 'GAROS authentication server'}
+                        {realm === 'garos' && 'GAROS authentication server'}
                         {realm === 'ldap' && 'LDAP Directory'}
                       </span>
                       <ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none transition-transform duration-200 ${realmDropdownOpen ? 'rotate-180' : ''}`} size={14} />
@@ -201,7 +201,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                           >
                             {[
                               { id: 'pam', label: 'Linux PAM standard authentication' },
-                              { id: 'pve', label: 'GAROS authentication server' },
+                              { id: 'garos', label: 'GAROS authentication server' },
                               { id: 'ldap', label: 'LDAP Directory' }
                             ].map((option) => (
                               <button
