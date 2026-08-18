@@ -1,3 +1,11 @@
+// @deprecated — server.ts será removido. Backend canônico é o
+// `garos-backend` Rust (Axum + JWT + SQLx). Ver ADR-001 no vault.
+// Não adicionar endpoints aqui; abrir card em KCR-BE001 pra trabalho no Rust.
+// Mantido apenas o `/api/terminal` (node-pty) até port pro Rust.
+
+import { GarAdapter } from './src/lib/gar-adapter.ts';
+import { WebSocketServer } from 'ws';
+import * as pty from 'node-pty';
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
@@ -258,6 +266,21 @@ let nixosConfig = `#{
 
 async function startServer() {
   const app = express();
+
+const wss = new WebSocketServer({ port: 3001 });
+wss.on('connection', (ws) => {
+  const shell = pty.spawn('bash', [], {
+    name: 'xterm-color',
+    cols: 80,
+    rows: 30,
+    cwd: process.env.HOME,
+    env: process.env as any
+  });
+  shell.onData((data) => ws.send(data));
+  ws.on('message', (msg) => shell.write(msg.toString()));
+  ws.on('close', () => shell.kill());
+});
+
   const PORT = 3000;
 
   app.use(express.json());
@@ -279,161 +302,147 @@ async function startServer() {
 
   // ---------------- API ENDPOINTS ---------------- //
 
+
   // GAROS Bare-Metal Server Status API
-  app.get("/api/garos/status", (req, res) => {
-    res.json({
-      serverName: "garos-primary",
-      serverIp: "192.168.1.10",
-      tftpStatus: "Online",
-      nfsStatus: "Online",
-      dhcpStatus: "Online",
-      wolProxyStatus: "Online",
-      activeDevices: garosDevices.filter(d => d.status === 'Online').length,
-      totalDevices: garosDevices.length,
-      activeSessions: garosSessions.length,
-      activeImages: garosPxeImages.filter(i => i.status === 'Active').length,
-      throughputGb: 1.25,
-      cpuLoadPct: 14,
-      memoryUsagePct: 32,
-      nfsStoreUsagePct: 48,
-    });
+  app.get("/api/garos/status", async (req, res) => {
+    try {
+      const status = await GarAdapter.getStatus();
+      res.json(status);
+    } catch (e) {
+      res.status(500).json({ error: "Failed to get status" });
+    }
   });
 
   // GAROS Netboot Devices List
-  app.get("/api/garos/devices", (req, res) => {
-    res.json(garosDevices);
+  app.get("/api/garos/devices", async (req, res) => {
+    try {
+      const devices = await GarAdapter.getDevices();
+      res.json(devices);
+    } catch (e) {
+      res.status(500).json({ error: "Failed to get devices" });
+    }
   });
 
   // Send Wake-on-LAN (WOL)
-  app.post("/api/garos/devices/wol", (req, res) => {
-    const { mac } = req.body;
-    const device = garosDevices.find(d => d.mac === mac);
-    if (device) {
-      if (device.status === 'Offline') {
-        device.status = 'Booting';
-        setTimeout(() => {
-          device.status = 'Online';
-        }, 5000);
-      }
-      logClusterTask("garos-primary", `Wake-on-LAN (WOL) Magic Packet enviado para ${device.hostname} (${mac})`);
+  app.post("/api/garos/devices/wol", async (req, res) => {
+    try {
+      const { mac } = req.body;
+      const device = await GarAdapter.wakeDevice(mac);
       res.json({ success: true, device });
-    } else {
-      res.status(404).json({ error: "Estação não encontrada" });
+    } catch (e) {
+      res.status(500).json({ error: "Failed to wake device" });
     }
   });
 
   // Update Assigned PXE Image for Device
-  app.put("/api/garos/devices/:mac/image", (req, res) => {
-    const { mac } = req.params;
-    const { assignedImageId } = req.body;
-    const device = garosDevices.find(d => d.mac === mac);
-    if (device) {
-      device.assignedImageId = assignedImageId;
-      logClusterTask("garos-primary", `Perfil de boot PXE alterado para ${device.hostname}: ${assignedImageId}`);
+  app.put("/api/garos/devices/:mac/image", async (req, res) => {
+    try {
+      const { mac } = req.params;
+      const { assignedImageId } = req.body;
+      const device = await GarAdapter.setDeviceImage(mac, assignedImageId);
       res.json({ success: true, device });
-    } else {
-      res.status(404).json({ error: "Estação não encontrada" });
+    } catch (e) {
+      res.status(500).json({ error: "Failed to set device image" });
     }
   });
 
   // Reboot Device
-  app.post("/api/garos/devices/:mac/reboot", (req, res) => {
-    const { mac } = req.params;
-    const device = garosDevices.find(d => d.mac === mac);
-    if (device) {
-      device.status = 'Booting';
-      setTimeout(() => {
-        device.status = 'Online';
-      }, 5000);
-      logClusterTask("garos-primary", `Sinal de reboot remoto transmitido para ${device.hostname}`);
+  app.post("/api/garos/devices/:mac/reboot", async (req, res) => {
+    try {
+      const { mac } = req.params;
+      const device = await GarAdapter.rebootDevice(mac);
       res.json({ success: true, device });
-    } else {
-      res.status(404).json({ error: "Estação não encontrada" });
+    } catch (e) {
+      res.status(500).json({ error: "Failed to reboot device" });
     }
   });
 
   // Send Terminal Message
-  app.post("/api/garos/devices/:mac/message", (req, res) => {
-    const { mac } = req.params;
-    const { message } = req.body;
-    const device = garosDevices.find(d => d.mac === mac);
-    if (device) {
-      logClusterTask("garos-primary", `Mensagem transmitida para ${device.hostname}: "${message}"`);
+  app.post("/api/garos/devices/:mac/message", async (req, res) => {
+    try {
+      const { mac } = req.params;
+      const { message } = req.body;
+      await GarAdapter.sendMessage(mac, message);
       res.json({ success: true });
-    } else {
-      res.status(404).json({ error: "Estação não encontrada" });
+    } catch (e) {
+      res.status(500).json({ error: "Failed to send message" });
     }
   });
 
   // GAROS PXE Images List
-  app.get("/api/garos/pxe/images", (req, res) => {
-    res.json(garosPxeImages);
+  app.get("/api/garos/pxe/images", async (req, res) => {
+    try {
+      const images = await GarAdapter.getImages();
+      res.json(images);
+    } catch (e) {
+      res.status(500).json({ error: "Failed to get images" });
+    }
   });
 
   // Create new PXE Image
-  app.post("/api/garos/pxe/images", (req, res) => {
-    const { name, kernel, args } = req.body;
-    const newImg = {
-      id: `img-${Date.now()}`,
-      name: name || "NixOS-Custom-Image",
-      kernel: kernel || "6.6.21-garos-lts",
-      args: args || "initrd=initrd ip=dhcp console=ttyS0",
-      sizeMb: Math.floor(180 + Math.random() * 300),
-      status: "Active",
-      lastUpdated: "Hoje, " + new Date().toLocaleTimeString().slice(0, 5),
-    };
-    garosPxeImages.unshift(newImg);
-    logClusterTask("garos-primary", `Nova imagem PXE recompilada e adicionada ao repositório: ${newImg.name}`);
-    res.json(newImg);
+  app.post("/api/garos/pxe/images", async (req, res) => {
+    try {
+      const { name, kernel, args } = req.body;
+      const newImg = await GarAdapter.buildImage(name, kernel, args);
+      res.json(newImg);
+    } catch (e) {
+      res.status(500).json({ error: "Failed to build image" });
+    }
   });
 
   // GAROS Active Sessions
-  app.get("/api/garos/sessions", (req, res) => {
-    res.json(garosSessions);
+  app.get("/api/garos/sessions", async (req, res) => {
+    try {
+      const sessions = await GarAdapter.getSessions();
+      res.json(sessions);
+    } catch (e) {
+      res.status(500).json({ error: "Failed to get sessions" });
+    }
   });
 
   // Terminate Active Session
-  app.delete("/api/garos/sessions/:id", (req, res) => {
-    const { id } = req.params;
-    const session = garosSessions.find(s => s.id === id);
-    if (session) {
-      garosSessions = garosSessions.filter(s => s.id !== id);
-      logClusterTask("garos-primary", `Sessão do usuário ${session.username} encerrada remotamente`);
+  app.delete("/api/garos/sessions/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      await GarAdapter.killSession(id);
       res.json({ success: true });
-    } else {
-      res.status(404).json({ error: "Sessão não encontrada" });
+    } catch (e) {
+      res.status(500).json({ error: "Failed to kill session" });
     }
   });
 
   // GAROS System Services
-  app.get("/api/garos/services", (req, res) => {
-    res.json(garosServices);
+  app.get("/api/garos/services", async (req, res) => {
+    try {
+      const services = await GarAdapter.getServices();
+      res.json(services);
+    } catch (e) {
+      res.status(500).json({ error: "Failed to get services" });
+    }
   });
 
   // GAROS Service Action
-  app.post("/api/garos/services/:name/action", (req, res) => {
-    const { name } = req.params;
-    const { action } = req.body;
-    const srv = garosServices.find(s => s.name === name);
-    if (srv) {
-      if (action === 'start' || action === 'restart') {
-        srv.status = 'running';
-        srv.uptime = '1s';
-      } else if (action === 'stop') {
-        srv.status = 'stopped';
-        srv.uptime = '0s';
-      }
-      logClusterTask("garos-primary", `Serviço ${name} acionado: ${action.toUpperCase()}`);
+  app.post("/api/garos/services/:name/action", async (req, res) => {
+    try {
+      const { name } = req.params;
+      const { action } = req.body;
+      const srv = await GarAdapter.serviceAction(name, action);
       res.json({ success: true, service: srv });
-    } else {
-      res.status(404).json({ error: "Serviço não encontrado" });
+    } catch (e) {
+      res.status(500).json({ error: "Failed to execute service action" });
     }
   });
 
   // GAROS Audit Logs
-  app.get("/api/garos/logs", (req, res) => {
-    res.json(garosAuditLogs);
+  app.get("/api/garos/logs", async (req, res) => {
+    try {
+      const logs = await GarAdapter.getLogs();
+      res.json(logs);
+    } catch (e) {
+      res.status(500).json({ error: "Failed to get logs" });
+    }
   });
+
 
   // GAROS Terminal Command Executor
   app.post("/api/garos/terminal/exec", (req, res) => {

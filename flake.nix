@@ -3,7 +3,8 @@
 
   # Inputs minimalistas: só nixpkgs pra ter buildNpmPackage.
   # Sem flake-utils pra manter a flake leve (defaultSystem só pra x86_64-linux).
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
+  # K-008 (2026-08-14): migração NixOS 25.11 → 26.05.
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
 
   outputs = { self, nixpkgs }:
     let

@@ -14,7 +14,7 @@ import {
   Network 
 } from 'lucide-react';
 
-import logoImg from '../assets/images/kryonix_logo_1784247250954.jpg';
+import logoImg from '../assets/images/garos-logo-emblema-com-texto.png';
 
 interface LoginProps {
   onLogin: () => void;
