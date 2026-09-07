@@ -1,124 +1,27 @@
 # garos-control-web
 
-Frontend web do **garos-control** — painel de gestão do sistema operacional diskless [garos](https://github.com/garos/garos) baseado em NixOS.
+## 📌 Visão Geral
+Dashboard e painel web gerencial do GAROS desenvolvido em React, TypeScript e Vite.
 
-## O que é
+## ⚙️ O que esta pasta faz
+- Gerenciar especificações declarativas do NixOS, módulos do sistema e receitas de build.
+- Implementar componentes interativos de interface de usuário e gerenciamento de estado web.
+- Manter documentadas as decisões de design, especificações de rotas e guias operacionais.
 
-Aplicação React 19 + Vite + TypeScript + TailwindCSS que serve a interface do painel de gerenciamento de **estações diskless** (estações sem disco local que bootam via PXE/iPXE e montam root via NFS do servidor garos-server).
+## 📂 Conteúdo e Arquivos Detalhados
+- `public/`: **[Módulo]** — Subsistema e arquivos de organização do módulo `public`.
+- `src/`: **[Módulo]** — Componentes visuais, hooks, páginas e rotas da interface de controle web.
+- `INVENTORY.md`: **[Documentação em Markdown]** — Documento de especificação técnica abordando *INVENTORY — garos-control-web*.
+- `bun.lock`: **[Arquivo do Módulo]** — Arquivo integrante do diretório (bun.lock).
+- `flake.lock`: **[Trava de Dependências Flake]** — Registro determinístico com hashes e revisões exatas dos repositórios e módulos importados pelo Flake.
+- `flake.nix`: **[Nix Flake Principal]** — Define as entradas (nixpkgs) e configurações de sistema () do ecossistema Nix.
+- `index.html`: **[Arquivo do Módulo]** — Arquivo integrante do diretório (index.html).
+- `metadata.json`: **[Arquivo do Módulo]** — Arquivo integrante do diretório (metadata.json).
+- `package-lock.json`: **[Trava de Versões npm]** — Arquivo de trava que garante a instalação de versões idênticas de pacotes JavaScript/TypeScript.
+- `package.json`: **[Manifesto npm Node.js]** — Define scripts de execução (`name, version, type`), metadados do projeto e dependências npm.
+- `server.ts`: **[Servidor Backend Express]** — Ponto de entrada do backend em TypeScript responsável por servir a API do instalador e manipular eventos de disco.
+- `tsconfig.json`: **[Arquivo do Módulo]** — Arquivo integrante do diretório (tsconfig.json).
+- `vite.config.ts`: **[Componente/Módulo TS/JS]** — Implementação TypeScript/React exportando exports `defineConfig`.
 
-## Funcionalidades
-
-- **Dashboard** com métricas em tempo real, feed de atividades e status do cluster
-- **Estações Diskless** — monitoramento de hardware, heartbeat, ações de WoL/reboot/shutdown/reimage em lote
-- **Gestão de Estações** — árvore de imagens PXE, NFS exports, snapshots BTRFS
-- **Serviços & Daemons** — controle de Systemd/Docker/PXE/NFS/TFTP/DHCP
-- **Armazenamento & NFS** — pool BTRFS, scrub, drives SMART, snapshots
-- **Rede & Subredes** — firewall NFTables, modo pânico, conexões ativas
-- **Telemetria & Métricas** — gráficos CPU/RAM/Network/IO com SLA
-- **Usuários & Permissões** — cotas, roles, soft delete
-- **Logs & Auditoria** — viewer de journald com filtros
-- **Configurações** — rede, DHCP, PXE, AD (roadmap), backup
-
-## Stack
-
-- **React 19** + **TypeScript estrito**
-- **Vite 6** como bundler/dev server
-- **TailwindCSS v4** + tokens customizados do tema garos
-- **Zustand** (state) + **React Router 7** (rotas)
-- **Recharts** (gráficos) + **Lucide React** (ícones) + **Motion** (animações)
-- **react-grid-layout** (dashboard com widgets arrastáveis)
-- **Express** (backend mínimo, proxy/serve) rodando via `tsx server.ts`
-
-## Setup local
-
-```bash
-# 1. Instalar dependências
-npm install
-
-# 2. Setup de env (opcional — só se for usar Gemini no painel)
-cp .env.example .env
-# Editar .env e adicionar GEMINI_API_KEY
-
-# 3. Rodar dev server (porta 3000)
-npm run dev
-```
-
-Acesse http://localhost:3000
-
-## Build de produção
-
-```bash
-npm run build
-npm run preview  # serve dist/
-```
-
-## Estrutura de pastas
-
-```
-src/
-├── App.tsx                 # Root component, roteamento, auth gate
-├── main.tsx                # Entry point React
-├── index.css               # Tailwind imports + tokens CSS do tema garos
-├── types.ts                # Tipos compartilhados (Node, User, Image, etc)
-├── defaultDashboardLayout.ts
-├── components/
-│   ├── Sidebar.tsx         # Sidebar principal
-│   ├── Topbar.tsx          # Topbar
-│   ├── BackgroundMosaic.tsx
-│   ├── ContextMenu.tsx
-│   ├── Modal.tsx
-│   ├── PreferencesModal.tsx
-│   ├── ToastContainer.tsx
-│   ├── KveCard.tsx
-│   ├── MobileBottomNav.tsx
-│   ├── GarosWebTerminalModal.tsx
-│   ├── dashboard/          # Widgets arrastáveis do dashboard
-│   ├── garos/              # Componentes específicos do garos
-│   └── nos/                # Componentes de estações (Node)
-├── views/                  # Páginas principais
-│   ├── Dashboard.tsx
-│   ├── Login.tsx
-│   ├── Nodes.tsx           # Tela de Estações Diskless
-│   ├── Users.tsx
-│   ├── Services.tsx
-│   ├── Storage.tsx
-│   ├── Monitoring.tsx
-│   ├── Gateway.tsx
-│   ├── Logs.tsx
-│   ├── Settings.tsx
-│   ├── ThinkServer.tsx     # Árvore de recursos
-│   └── ResourceView.tsx    # Detalhe de recurso (estação, imagem, etc)
-├── store/                  # Zustand stores
-│   └── useGarosStore.ts
-├── hooks/
-│   ├── useDeviceType.ts
-│   ├── useGarosRealtime.ts
-│   └── useDashboardLayout.ts
-├── services/
-│   └── api.ts
-└── utils/
-    └── theme.ts
-```
-
-## Temas
-
-O tema escuro segue os tokens definidos no [BRANDING.md do garos](https://github.com/garos/garos/blob/main/BRANDING.md):
-
-- `--bg-base: #0a0e1a`
-- `--bg-elevated: #131826`
-- `--bg-card: #1a2030`
-- `--accent-cyan: #06b6d4`
-- `--accent-blue: #3b82f6`
-- `--success: #10b981`
-- `--warning: #f59e0b`
-- `--danger: #ef4444`
-
-Definidos em `tailwind.config.ts` como `kve-bg`, `kve-accent`, `kve-indigo`, etc (legado, em migração para `garos-*`).
-
-## Integração com o backend
-
-Em produção, as requisições de API (`/api/*`) são proxyadas nativamente pelo Nginx para o backend em Rust **garos-control-api** (`garos-backend` baseado em Axum + sqlx + SQLite) rodando localmente na porta `8080` do servidor. O servidor de desenvolvimento Express (`server.ts`) é mantido estritamente para propósitos de teste local e mocks rápidos quando a API do Rust não está ativa.
-
-## Licença
-
-MIT — Veja [LICENSE](LICENSE)
+## 🔄 Histórico de Mudanças Comportamentais
+- **[Inicial]**: Mapeamento e documentação detalhada da estrutura inicial do módulo.

@@ -1,0 +1,13 @@
+# assets
+
+## 📌 Visão Geral
+Módulo integrante da arquitetura do repositório GAROS no caminho `garos-control-web/src/assets`.
+
+## ⚙️ O que esta pasta faz
+- Fornecer a lógica executável de backend, ferramentas CLI ou componentes de alta performance em Rust.
+
+## 📂 Conteúdo e Arquivos Detalhados
+- `images/`: **[Módulo]** — Subsistema e arquivos de organização do módulo `images`.
+
+## 🔄 Histórico de Mudanças Comportamentais
+- **[Inicial]**: Mapeamento e documentação detalhada da estrutura inicial do módulo.
