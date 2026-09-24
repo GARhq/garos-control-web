@@ -15,9 +15,12 @@ import {
   Check, 
   ChevronRight, 
   Sparkles,
-  Link2
+  Link2,
+  ShieldCheck,
+  AlertTriangle
 } from 'lucide-react';
 import KveCard from '../components/KveCard';
+import { runGarosApiSelfTest, SelfTestSuiteReport } from '../services/apiSelfTest';
 
 interface Endpoint {
   method: 'GET' | 'POST' | 'PUT' | 'DELETE';
@@ -247,6 +250,17 @@ const ApiHubView: React.FC = () => {
   const [isSimulating, setIsSimulating] = useState(false);
   const [simulationResponse, setSimulationResponse] = useState<string | null>(null);
   const [simulatedLatency, setSimulatedLatency] = useState<number | null>(null);
+
+  // Self-test battery state
+  const [selfTestReport, setSelfTestReport] = useState<SelfTestSuiteReport | null>(null);
+  const [isRunningSelfTest, setIsRunningSelfTest] = useState(false);
+
+  const handleRunSelfTest = async () => {
+    setIsRunningSelfTest(true);
+    const report = await runGarosApiSelfTest();
+    setSelfTestReport(report);
+    setIsRunningSelfTest(false);
+  };
 
   const getEndpoints = () => {
     switch (activeCategory) {
@@ -538,9 +552,82 @@ const ApiHubView: React.FC = () => {
                         {simulationResponse}
                       </pre>
                     </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+          {/* Embedded Self-Test Battery Suite */}
+          <KveCard 
+            title="Bateria de Testes Embutida (Self-Test Suite)" 
+            subtitle="Execução atômica de asserções nos mapeamentos de dados, endpoints e conectividade"
+            icon={<ShieldCheck size={16} />}
+          >
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 bg-slate-950/60 border border-kve-border rounded-xl">
+                <div>
+                  <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                    <Sparkles size={14} className="text-kve-accent" />
+                    Bateria Integrada de Testes de API & Mappers
+                  </h4>
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    Valida conversões de dados, fallbacks de rede, injeção de tokens JWT e chamadas de rotas REST.
+                  </p>
+                </div>
+                <button
+                  onClick={handleRunSelfTest}
+                  disabled={isRunningSelfTest}
+                  className="px-4 py-2 bg-gradient-to-r from-kve-accent to-blue-600 text-kve-bg font-black text-xs rounded-xl shadow-lg hover:brightness-110 disabled:opacity-50 transition-all flex items-center gap-2 shrink-0"
+                >
+                  {isRunningSelfTest ? (
+                    <>
+                      <RefreshCw size={14} className="animate-spin" />
+                      RODANDO BATERIA...
+                    </>
+                  ) : (
+                    <>
+                      <Play size={14} />
+                      EXECUTAR BATERIA DE TESTES
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {selfTestReport && (
+                <div className="space-y-3 pt-2">
+                  <div className="flex items-center justify-between p-3 bg-slate-900/80 border border-kve-border rounded-lg text-xs">
+                    <div className="flex items-center gap-2 font-mono">
+                      <span className={`w-2.5 h-2.5 rounded-full ${selfTestReport.passed ? 'bg-kve-success' : 'bg-kve-danger'}`} />
+                      <span className="font-bold text-white">Status da Suite:</span>
+                      <span className={selfTestReport.passed ? 'text-kve-success font-bold' : 'text-kve-danger font-bold'}>
+                        {selfTestReport.passed ? 'PASS (100% OK)' : 'FAIL (Erros Detectados)'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-4 text-[10px] font-mono">
+                      <span>Total: <strong className="text-white">{selfTestReport.total}</strong></span>
+                      <span>Passaram: <strong className="text-kve-success">{selfTestReport.passedCount}</strong></span>
+                      <span>Falhas: <strong className="text-kve-danger">{selfTestReport.failedCount}</strong></span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    {selfTestReport.results.map((res, idx) => (
+                      <div key={idx} className="p-3 bg-slate-950/40 border border-kve-border/60 rounded-lg flex items-center justify-between text-xs font-mono">
+                        <div className="flex items-center gap-3">
+                          {res.passed ? (
+                            <CheckCircle size={14} className="text-kve-success shrink-0" />
+                          ) : (
+                            <AlertTriangle size={14} className="text-kve-danger shrink-0" />
+                          )}
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-white">{res.name}</span>
+                              <span className="text-[9px] bg-slate-900 text-slate-400 px-1.5 py-0.5 rounded border border-kve-border">{res.category}</span>
+                            </div>
+                            <p className="text-[10px] text-slate-400 mt-0.5">{res.message}</p>
+                          </div>
+                        </div>
+                        <span className="text-[10px] text-slate-500">{res.durationMs}ms</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </KveCard>
         </div>

@@ -8,6 +8,26 @@ import {
   Service 
 } from '../types';
 
+// Helper for Base URL resolution (Browser vs Node.js test environment)
+function getBaseUrl(): string {
+  if (typeof window !== 'undefined' && window.location) {
+    return '';
+  }
+  return process.env.GAROS_API_URL || 'http://localhost:8000';
+}
+
+// Helper for Auth headers (safely checking localStorage in Node / browser)
+function getAuthHeaders(): Record<string, string> {
+  const token = typeof localStorage !== 'undefined' ? localStorage.getItem('garos_jwt_token') : null;
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+}
+
 // Default mock fallbacks if API is offline or starting up
 const fallbackDevices: NetbootDevice[] = [
   {
@@ -124,7 +144,7 @@ const fallbackDevices: NetbootDevice[] = [
 
 const fallbackPxeImages: PXEImageDetail[] = [
   { id: 'img-01', name: 'GarOS-Thin-Client-v2.6', kernel: '6.6.21-garos-lts', args: 'initrd=initrd ip=dhcp console=ttyS0 boot.shell_on_fail', sizeMb: 420, status: 'Active', lastUpdated: 'Hoje, 10:15' },
-  { id: 'img-02', name: 'GAROS-Rescue-Shell-v1.4', kernel: '6.1.72-rescue', args: 'initrd=initrd_rescue ip=dhcp rescue_mode=true nomodeset', sizeMb: 180, status: 'Active', lastUpdated: 'Ontem, 18:30' },
+  { id: 'img-02', name: 'GAROS-Rescue-Shell-v1.4', kernel: '6.1.72-rescue', args: 'initrd=initramfs_rescue ip=dhcp rescue_mode=true nomodeset', sizeMb: 180, status: 'Active', lastUpdated: 'Ontem, 18:30' },
   { id: 'img-03', name: 'Alpine-Diskless-GAROS-v3.19', kernel: '6.6.8-alpine', args: 'initrd=initramfs-alpine ip=dhcp alpine_dev=nfs', sizeMb: 95, status: 'Idle', lastUpdated: '12 Jul 2026' },
 ];
 
@@ -134,21 +154,76 @@ const fallbackSessions: ActiveSession[] = [
   { id: 'sess-03', username: 'user-alpha (Mariana Lima)', deviceIp: '192.168.1.154', terminalServer: 'garos-primary', idleTime: '15m 03s', cpuPct: 78, memPct: 82, status: 'Idle' },
 ];
 
+// Mapper: Axum backend NetbootDevice (snake_case) -> NetbootDevice (camelCase)
+export function mapRawNodeToNetbootDevice(raw: any): NetbootDevice {
+  return {
+    mac: raw.mac || '',
+    ip: raw.ip || '192.168.1.100',
+    hostname: raw.hostname || raw.mac || 'node-client',
+    assignedImageId: raw.image_id || raw.assignedImageId || 'img-01',
+    status: raw.status || 'Online',
+    ramGb: raw.ram_gb ?? raw.ramGb ?? 4,
+    cpuCores: raw.cpu_cores ?? raw.cpuCores ?? 2,
+    currentUser: raw.current_user_id || raw.currentUser || 'Livre',
+    currentUserRole: raw.current_user_role || raw.currentUserRole || 'Operador',
+    loginTime: raw.login_at ? new Date(raw.login_at).toLocaleTimeString() : (raw.loginTime || 'N/A'),
+    health: raw.health || (raw.status === 'Online' ? 'Excellent' : 'Offline'),
+    cpuTempC: raw.cpu_temp_c ?? raw.cpuTempC ?? 38,
+    cpuUsagePct: raw.cpu_usage_pct ?? raw.cpuUsagePct ?? 15,
+    memUsagePct: raw.mem_usage_pct ?? raw.memUsagePct ?? 40,
+    fanSpeedRpm: raw.fan_rpm ?? raw.fanSpeedRpm ?? 1800,
+    pingMs: raw.ping_ms ?? raw.pingMs ?? 0.4,
+    networkLink: raw.network_link || raw.networkLink || '1 Gbps RJ45',
+    nfsLatencyMs: raw.nfs_latency_ms ?? raw.nfsLatencyMs ?? 0.2,
+    hardwareModel: raw.hardware_model || raw.hardwareModel || 'Generic Diskless Node',
+    uptime: raw.uptime || '1h 20m',
+  };
+}
+
+export function mapRawPxeImage(raw: any): PXEImageDetail {
+  return {
+    id: raw.id || raw.image_id || 'img-01',
+    name: raw.name || raw.filename || 'GAROS-Netboot-Image',
+    kernel: raw.kernel || 'bzImage',
+    args: raw.args || 'initrd=initrd ip=dhcp',
+    sizeMb: raw.size_mb || raw.sizeMb || 450,
+    status: raw.status || 'Active',
+    lastUpdated: raw.last_updated || raw.lastUpdated || 'Hoje',
+  };
+}
+
+export function mapRawAuditLog(raw: any): AuditLog {
+  return {
+    id: raw.id || Math.floor(Math.random() * 1000),
+    time: raw.created_at ? new Date(raw.created_at).toLocaleTimeString() : (raw.time || 'Agora'),
+    level: raw.level || 'info',
+    source: raw.source || 'system',
+    message: raw.message || raw.action || '',
+    user: raw.user_id || raw.user || 'system',
+  };
+}
+
+// REST API Methods with real endpoints + fallbacks
 export async function fetchGarosDevices(): Promise<NetbootDevice[]> {
   try {
-    const res = await fetch('/api/garos/nodes');
-    if (res.ok) return await res.json();
+    const res = await fetch(`${getBaseUrl()}/api/garos/nodes`, { headers: getAuthHeaders() });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        return data.map(mapRawNodeToNetbootDevice);
+      }
+    }
   } catch (e) {
-    console.error("Failed to fetch real devices state from API", e);
+    console.warn("API offline or error fetching real nodes, using fallback:", e);
   }
-  return [];
+  return fallbackDevices;
 }
 
 export async function sendWakeOnLan(mac: string): Promise<boolean> {
   try {
-    const res = await fetch(`/api/garos/nodes/${encodeURIComponent(mac)}/wol`, {
+    const res = await fetch(`${getBaseUrl()}/api/garos/nodes/${encodeURIComponent(mac)}/wol`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ mac }),
     });
     if (res.ok) return true;
@@ -160,10 +235,10 @@ export async function sendWakeOnLan(mac: string): Promise<boolean> {
 
 export async function updateDeviceImage(mac: string, assignedImageId: string): Promise<boolean> {
   try {
-    const res = await fetch(`/api/garos/nodes/${encodeURIComponent(mac)}/image`, {
+    const res = await fetch(`${getBaseUrl()}/api/garos/nodes/${encodeURIComponent(mac)}/image`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ assignedImageId }),
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ image_id: assignedImageId }),
     });
     if (res.ok) return true;
   } catch (e) {
@@ -174,9 +249,9 @@ export async function updateDeviceImage(mac: string, assignedImageId: string): P
 
 export async function sendTerminalMessage(mac: string, message: string): Promise<boolean> {
   try {
-    const res = await fetch(`/api/garos/nodes/${encodeURIComponent(mac)}/message`, {
+    const res = await fetch(`${getBaseUrl()}/api/garos/nodes/${encodeURIComponent(mac)}/message`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ message }),
     });
     if (res.ok) return true;
@@ -188,8 +263,9 @@ export async function sendTerminalMessage(mac: string, message: string): Promise
 
 export async function rebootTerminalDevice(mac: string): Promise<boolean> {
   try {
-    const res = await fetch(`/api/garos/nodes/${encodeURIComponent(mac)}/reboot`, {
+    const res = await fetch(`${getBaseUrl()}/api/garos/nodes/${encodeURIComponent(mac)}/reboot`, {
       method: 'POST',
+      headers: getAuthHeaders(),
     });
     if (res.ok) return true;
   } catch (e) {
@@ -200,22 +276,30 @@ export async function rebootTerminalDevice(mac: string): Promise<boolean> {
 
 export async function fetchGarosPxeImages(): Promise<PXEImageDetail[]> {
   try {
-    const res = await fetch('/api/garos/images');
-    if (res.ok) return await res.json();
+    const res = await fetch(`${getBaseUrl()}/api/garos/images`, { headers: getAuthHeaders() });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        return data.map(mapRawPxeImage);
+      }
+    }
   } catch (e) {
-    console.error("Failed to fetch real PXE images from API", e);
+    console.warn("API offline or error fetching real images, using fallback:", e);
   }
-  return [];
+  return fallbackPxeImages;
 }
 
 export async function createGarosPxeImage(name: string, kernel: string, args: string): Promise<PXEImageDetail> {
   try {
-    const res = await fetch('/api/garos/images', {
+    const res = await fetch(`${getBaseUrl()}/api/garos/images`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ name, kernel, args }),
     });
-    if (res.ok) return await res.json();
+    if (res.ok) {
+      const raw = await res.json();
+      return mapRawPxeImage(raw);
+    }
   } catch (e) {
     console.error("Create PXE image API call failed", e);
     throw e;
@@ -225,17 +309,25 @@ export async function createGarosPxeImage(name: string, kernel: string, args: st
 
 export async function fetchGarosSessions(): Promise<ActiveSession[]> {
   try {
-    const res = await fetch('/api/garos/activity');
-    if (res.ok) return await res.json();
+    const res = await fetch(`${getBaseUrl()}/api/garos/activity`, { headers: getAuthHeaders() });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        return data;
+      }
+    }
   } catch (e) {
-    console.error("Failed to fetch real active sessions from API", e);
+    console.warn("API offline, using fallback sessions:", e);
   }
-  return [];
+  return fallbackSessions;
 }
 
 export async function terminateSession(id: string): Promise<boolean> {
   try {
-    const res = await fetch(`/api/garos/activity/${id}`, { method: 'DELETE' });
+    const res = await fetch(`${getBaseUrl()}/api/garos/activity/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
     if (res.ok) return true;
   } catch (e) {
     console.error("Session termination API call failed", e);
@@ -245,19 +337,24 @@ export async function terminateSession(id: string): Promise<boolean> {
 
 export async function fetchGarosServices(): Promise<Service[]> {
   try {
-    const res = await fetch('/api/garos/services');
-    if (res.ok) return await res.json();
+    const res = await fetch(`${getBaseUrl()}/api/garos/services`, { headers: getAuthHeaders() });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        return data;
+      }
+    }
   } catch (e) {
-    console.error("Failed to fetch real services from API", e);
+    console.warn("API offline, using fallback services:", e);
   }
   return [];
 }
 
 export async function triggerGarosServiceAction(name: string, action: 'start' | 'stop' | 'restart'): Promise<boolean> {
   try {
-    const res = await fetch(`/api/garos/services/${encodeURIComponent(name)}/action`, {
+    const res = await fetch(`${getBaseUrl()}/api/garos/services/${encodeURIComponent(name)}/action`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ action }),
     });
     if (res.ok) return true;
@@ -269,19 +366,24 @@ export async function triggerGarosServiceAction(name: string, action: 'start' | 
 
 export async function fetchGarosLogs(): Promise<AuditLog[]> {
   try {
-    const res = await fetch('/api/garos/audit');
-    if (res.ok) return await res.json();
+    const res = await fetch(`${getBaseUrl()}/api/garos/audit`, { headers: getAuthHeaders() });
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        return data.map(mapRawAuditLog);
+      }
+    }
   } catch (e) {
-    console.error("Failed to fetch real audit logs from API", e);
+    console.warn("API offline, using fallback logs:", e);
   }
   return [];
 }
 
 export async function executeGarosTerminalCommand(command: string): Promise<string> {
   try {
-    const res = await fetch('/api/garos/terminal/exec', {
+    const res = await fetch(`${getBaseUrl()}/api/garos/terminal/exec`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ command }),
     });
     if (res.ok) {
