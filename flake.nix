@@ -21,7 +21,7 @@
 
           # npmDepsHash: calculado via kryx check (2026-08-14, ~1min15s)
           # Para regenerar após mudar package-lock.json: usar fakeHash e ler do erro
-          npmDepsHash = "sha256-uPR11gsIoNdHnMx1L3MWcCEurbT8LGKQCJ2axEyia6I=";
+          npmDepsHash = "sha256-FaH1aGV8EQiAUTkNvVBDU+TefwsIxYnbe5cvH0iLqpY=";
 
           # Build: vite build → gera dist/
           buildPhase = ''
